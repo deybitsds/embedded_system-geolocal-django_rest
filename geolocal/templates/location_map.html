@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Map</title>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script>
+    	const initialLat = parseFloat("{{ latest_location.latitude|default:'-12.0464' }}");
+        const initialLng = parseFloat("{{ latest_location.longitude|default:'-77.0428' }}");
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://tiles.openfreemap.org/styles/liberty',
+            center: [initialLng, initialLat],
+            zoom: 13
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        let marker = new maplibregl.Marker({ color: '#FF0000' })
+            .setLngLat([initialLng, initialLat])
+            .setPopup(new maplibregl.Popup().setHTML('<h3>Current Location</h3>'))
+            .addTo(map);
+
+        let socket;
+        let reconnectTimeout;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = protocol + '//' + window.location.host + '/ws/location/';
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function(e) {
+                console.log('WebSocket connected');
+                clearTimeout(reconnectTimeout);
+            };
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                const lat = parseFloat(data.latitude);
+                const lng = parseFloat(data.longitude);
+                marker.setLngLat([lng, lat]);
+                map.flyTo({ center: [lng, lat], zoom: map.getZoom(), essential: true });
+            };
+            socket.onclose = function() {
+                reconnectTimeout = setTimeout(connectWebSocket, 3000);
+            };
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        map.on('load', function() {
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
