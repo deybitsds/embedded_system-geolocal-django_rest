@@ -1,10 +1,5 @@
 from rest_framework import serializers
 from django.conf import settings
-import jwt
-import base64
-import binascii
-import io
-from PIL import Image, UnidentifiedImageError
 
 class GeolocalSerializer(serializers.Serializer):
     
