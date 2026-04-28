@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Locations Table</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 1.5rem;
+      color: #111;
+    }
+
+    /* Filter form */
+    .filter-form {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+
+    .filter-form .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .filter-form label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #555;
+    }
+
+    .filter-form input[type="date"] {
+      padding: 0.45rem 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      color: #333;
+      background: #fafafa;
+    }
+
+    .filter-form input[type="date"]:focus {
+      outline: none;
+      border-color: #4a90d9;
+      background: #fff;
+    }
+
+    .filter-form button {
+      padding: 0.48rem 1.2rem;
+      background: #4a90d9;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .filter-form button:hover {
+      background: #357abd;
+    }
+
+    /* Result count */
+    .result-count {
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 0.75rem;
+    }
+
+    .result-count strong {
+      color: #111;
+    }
+
+    /* Table */
+    .table-wrap {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+    }
+
+    thead {
+      background: #f0f0f0;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.65rem 1rem;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #555;
+      border-bottom: 1px solid #ddd;
+    }
+
+    td {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid #eee;
+      color: #333;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: #fafafa;
+    }
+
+    /* Empty state */
+    .empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: #888;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Locations</h1>
+
+    <form class="filter-form" method="get" action="">
+      <div class="field">
+        <label for="start_date">Start date</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+      </div>
+      <div class="field">
+        <label for="end_date">End date</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+      </div>
+      <button type="submit">Filter</button>
+    </form>
+
+    <p class="result-count">Showing <strong>{{ count }}</strong> location{{ count|pluralize }}</p>
+
+    <div class="table-wrap">
+      {% if locations %}
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for loc in locations %}
+            <tr>
+              <td>{{ loc.id }}</td>
+              <td>{{ loc.latitude }}</td>
+              <td>{{ loc.longitude }}</td>
+              <td>{{ loc.date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">No locations found for the selected range.</p>
+      {% endif %}
+    </div>
+
+  </div>
+</body>
+</html>
