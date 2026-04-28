@@ -6,15 +6,267 @@
     <title>Location Map</title>
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
-        body { margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: 'DM Sans', sans-serif; background: #0a0a0a; overflow: hidden; }
+
         #map { width: 100vw; height: 100vh; }
+
+        /* ── History button ── */
+        #history-btn {
+            position: fixed;
+            top: 1.1rem;
+            left: 1.1rem;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1rem;
+            background: rgba(10,10,10,0.85);
+            color: #e8e8e8;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            transition: background 0.2s, border-color 0.2s;
+        }
+        #history-btn:hover {
+            background: rgba(30,30,30,0.95);
+            border-color: rgba(255,255,255,0.3);
+        }
+        #history-btn svg { flex-shrink: 0; }
+
+        /* ── Slide-over panel ── */
+        #history-panel {
+            position: fixed;
+            top: 0; left: 0;
+            width: 320px;
+            height: 100vh;
+            z-index: 200;
+            background: #111;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            flex-direction: column;
+            transform: translateX(-100%);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 32px rgba(0,0,0,0.5);
+        }
+        #history-panel.open { transform: translateX(0); }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.2rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #888;
+        }
+        #close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 0.2rem;
+            line-height: 0;
+            transition: color 0.2s;
+        }
+        #close-btn:hover { color: #ccc; }
+
+        /* ── Filter form inside panel ── */
+        .panel-form {
+            padding: 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .form-row label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #666;
+        }
+        .form-row input[type="datetime-local"] {
+            width: 100%;
+            padding: 0.5rem 0.7rem;
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: #e8e8e8;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            color-scheme: dark;
+            transition: border-color 0.2s;
+        }
+        .form-row input[type="datetime-local"]:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.3);
+        }
+        #apply-btn {
+            margin-top: 0.25rem;
+            padding: 0.6rem;
+            background: #e8e8e8;
+            color: #111;
+            border: none;
+            border-radius: 6px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #apply-btn:hover { background: #fff; }
+        #apply-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        /* ── Results list ── */
+        .panel-results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem 0;
+        }
+        .panel-results::-webkit-scrollbar { width: 4px; }
+        .panel-results::-webkit-scrollbar-track { background: transparent; }
+        .panel-results::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+        .result-meta {
+            padding: 0.4rem 1.25rem 0.8rem;
+            font-size: 0.7rem;
+            color: #555;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 1.25rem;
+            cursor: pointer;
+            transition: background 0.15s;
+            border-left: 2px solid transparent;
+        }
+        .result-item:hover {
+            background: rgba(255,255,255,0.04);
+            border-left-color: rgba(255,255,255,0.2);
+        }
+        .result-item.active {
+            background: rgba(255,255,255,0.06);
+            border-left-color: #e8e8e8;
+        }
+        .result-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #e74c3c;
+            flex-shrink: 0;
+        }
+        .result-info { flex: 1; min-width: 0; }
+        .result-coords {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: #ccc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .result-date {
+            font-size: 0.67rem;
+            color: #555;
+            margin-top: 0.15rem;
+        }
+
+        .empty-state {
+            padding: 2rem 1.25rem;
+            text-align: center;
+            color: #444;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .loading-state {
+            padding: 2rem 1.25rem;
+            text-align: center;
+            color: #555;
+            font-size: 0.78rem;
+        }
+
+        /* ── Overlay backdrop (mobile UX) ── */
+        #panel-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 199;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(2px);
+        }
+        #panel-backdrop.visible { display: block; }
     </style>
 </head>
 <body>
     <div id="map"></div>
+
+    <!-- History toggle button -->
+    <button id="history-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        History
+    </button>
+
+    <!-- Backdrop -->
+    <div id="panel-backdrop"></div>
+
+    <!-- Slide-over panel -->
+    <div id="history-panel">
+        <div class="panel-header">
+            <span class="panel-title">Location History</span>
+            <button id="close-btn" title="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="panel-form">
+            <div class="form-row">
+                <label for="start-dt">Start</label>
+                <input type="datetime-local" id="start-dt">
+            </div>
+            <div class="form-row">
+                <label for="end-dt">End</label>
+                <input type="datetime-local" id="end-dt">
+            </div>
+            <button id="apply-btn">Show on map</button>
+        </div>
+
+        <div class="panel-results" id="results-container">
+            <div class="empty-state">
+                Select a date range<br>and press <em>Show on map</em>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
     <script>
-    	const initialLat = parseFloat("{{ latest_location.latitude|default:'-12.0464' }}");
+        // ── Map init ──────────────────────────────────────────────
+        const initialLat = parseFloat("{{ latest_location.latitude|default:'-12.0464' }}");
         const initialLng = parseFloat("{{ latest_location.longitude|default:'-77.0428' }}");
 
         const map = new maplibregl.Map({
@@ -23,44 +275,185 @@
             center: [initialLng, initialLat],
             zoom: 13
         });
-
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        let marker = new maplibregl.Marker({ color: '#FF0000' })
+        // Live marker
+        let liveMarker = new maplibregl.Marker({ color: '#e74c3c' })
             .setLngLat([initialLng, initialLat])
-            .setPopup(new maplibregl.Popup().setHTML('<h3>Current Location</h3>'))
+            .setPopup(new maplibregl.Popup().setHTML('<strong>Current Location</strong>'))
             .addTo(map);
 
-        let socket;
-        let reconnectTimeout;
+        // ── WebSocket ─────────────────────────────────────────────
+        let socket, reconnectTimeout;
 
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = protocol + '//' + window.location.host + '/ws/location/';
-            socket = new WebSocket(wsUrl);
-
-            socket.onopen = function(e) {
-                console.log('WebSocket connected');
-                clearTimeout(reconnectTimeout);
-            };
-            socket.onmessage = function(event) {
+            socket = new WebSocket(protocol + '//' + window.location.host + '/ws/location/');
+            socket.onopen  = () => clearTimeout(reconnectTimeout);
+            socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 const lat = parseFloat(data.latitude);
                 const lng = parseFloat(data.longitude);
-                marker.setLngLat([lng, lat]);
-                map.flyTo({ center: [lng, lat], zoom: map.getZoom(), essential: true });
+                liveMarker.setLngLat([lng, lat]);
+                if (!historyMode) {
+                    map.flyTo({ center: [lng, lat], zoom: map.getZoom(), essential: true });
+                }
             };
-            socket.onclose = function() {
-                reconnectTimeout = setTimeout(connectWebSocket, 3000);
-            };
-            socket.onerror = function(error) {
-                console.error('WebSocket error:', error);
-            };
+            socket.onclose = () => { reconnectTimeout = setTimeout(connectWebSocket, 3000); };
+            socket.onerror = (err) => console.error('WebSocket error:', err);
         }
 
-        map.on('load', function() {
-            connectWebSocket();
+        map.on('load', connectWebSocket);
+
+        // ── History panel ─────────────────────────────────────────
+        const panel        = document.getElementById('history-panel');
+        const backdrop     = document.getElementById('panel-backdrop');
+        const historyBtn   = document.getElementById('history-btn');
+        const closeBtn     = document.getElementById('close-btn');
+        const applyBtn     = document.getElementById('apply-btn');
+        const startInput   = document.getElementById('start-dt');
+        const endInput     = document.getElementById('end-dt');
+        const resultsEl    = document.getElementById('results-container');
+
+        let historyMarkers = [];
+        let historyMode    = false;
+        let activeItem     = null;
+
+        function openPanel()  { panel.classList.add('open'); backdrop.classList.add('visible'); }
+        function closePanel() { panel.classList.remove('open'); backdrop.classList.remove('visible'); }
+
+        historyBtn.addEventListener('click', openPanel);
+        closeBtn.addEventListener('click', closePanel);
+        backdrop.addEventListener('click', closePanel);
+
+        // Pre-fill end to now, start to 24 h ago
+        function toLocalISO(date) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+        const now = new Date();
+        const yesterday = new Date(now - 24 * 3600 * 1000);
+        endInput.value   = toLocalISO(now);
+        startInput.value = toLocalISO(yesterday);
+
+        // Clear history markers
+        function clearHistoryMarkers() {
+            historyMarkers.forEach(m => m.remove());
+            historyMarkers = [];
+        }
+
+        // Fetch locations from the table endpoint and filter by datetime
+        applyBtn.addEventListener('click', async () => {
+            const startVal = startInput.value;
+            const endVal   = endInput.value;
+
+            if (!startVal || !endVal) {
+                alert('Please fill in both start and end dates.');
+                return;
+            }
+
+            const startDate = startVal.split('T')[0];
+            const endDate   = endVal.split('T')[0];
+
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Loading…';
+            resultsEl.innerHTML = '<div class="loading-state">Fetching locations…</div>';
+            clearHistoryMarkers();
+            historyMode = true;
+
+            try {
+                const url = `/geolocal/api/table/?start_date=${startDate}&end_date=${endDate}&format=json`;
+                const res  = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const json = await res.json();
+                const locations = json.locations || [];
+
+                // Further filter by full datetime (the endpoint only filters by date)
+                const startDT = new Date(startVal);
+                const endDT   = new Date(endVal);
+                const filtered = locations.filter(loc => {
+                    const d = new Date(loc.date);
+                    return d >= startDT && d <= endDT;
+                });
+
+                renderResults(filtered);
+            } catch (err) {
+                console.error(err);
+                resultsEl.innerHTML = '<div class="empty-state">Failed to load locations.<br>Check the console for details.</div>';
+            } finally {
+                applyBtn.disabled = false;
+                applyBtn.textContent = 'Show on map';
+            }
         });
+
+        function renderResults(locations) {
+            if (locations.length === 0) {
+                resultsEl.innerHTML = '<div class="empty-state">No locations found<br>for the selected range.</div>';
+                return;
+            }
+
+            // Add markers to map
+            const bounds = new maplibregl.LngLatBounds();
+            locations.forEach((loc, i) => {
+                const lat = parseFloat(loc.latitude);
+                const lng = parseFloat(loc.longitude);
+                const el  = document.createElement('div');
+                el.style.cssText = `
+                    width:10px;height:10px;border-radius:50%;
+                    background:#e74c3c;border:2px solid #fff;
+                    box-shadow:0 0 4px rgba(0,0,0,0.4);cursor:pointer;
+                `;
+                const marker = new maplibregl.Marker({ element: el })
+                    .setLngLat([lng, lat])
+                    .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(
+                        `<strong>#${loc.id}</strong><br>
+                         ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>
+                         <small>${new Date(loc.date).toLocaleString()}</small>`
+                    ))
+                    .addTo(map);
+                historyMarkers.push(marker);
+                bounds.extend([lng, lat]);
+            });
+
+            map.fitBounds(bounds, { padding: 60, maxZoom: 16 });
+
+            // Result list
+            const meta = `<div class="result-meta">${locations.length} point${locations.length !== 1 ? 's' : ''} found</div>`;
+            const items = locations.map((loc, i) => {
+                const lat = parseFloat(loc.latitude).toFixed(5);
+                const lng = parseFloat(loc.longitude).toFixed(5);
+                const dateStr = new Date(loc.date).toLocaleString(undefined, { dateStyle:'short', timeStyle:'short' });
+                return `
+                    <div class="result-item" data-index="${i}">
+                        <div class="result-dot"></div>
+                        <div class="result-info">
+                            <div class="result-coords">${lat}, ${lng}</div>
+                            <div class="result-date">${dateStr}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            resultsEl.innerHTML = meta + items;
+
+            // Click to fly + open popup
+            resultsEl.querySelectorAll('.result-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const idx = parseInt(el.dataset.index);
+                    const loc = locations[idx];
+                    const lat = parseFloat(loc.latitude);
+                    const lng = parseFloat(loc.longitude);
+
+                    if (activeItem) activeItem.classList.remove('active');
+                    el.classList.add('active');
+                    activeItem = el;
+
+                    map.flyTo({ center: [lng, lat], zoom: 15, essential: true });
+                    historyMarkers[idx].togglePopup();
+                });
+            });
+        }
     </script>
 </body>
 </html>
